@@ -40,7 +40,7 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
 end
 
 always_ff @(posedge clock_100Khz or negedge reset) begin
-        case (state)
+        case (EA)
             DECODE:     PE = ALIGN;
             ALIGN:      PE = OPERATE;
             OPERATE:    PE = NORMALIZE;
@@ -107,7 +107,7 @@ always_ff @(posedge clock_100Khz, negedge reset) begin
                         mant_TMP <= (mant_TMP >> 1);
                         exp_TMP  <= exp_TMP + 1;
                     end
-                    shift_counter <= 5'd0;
+                    counter <= 5'd0;
 
             end
             NORMALIZE: begin
