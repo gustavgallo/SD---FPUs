@@ -11,6 +11,5 @@ add wave -noupdate -radix hexadecimal /tb/result
 add wave -noupdate -radix binary /tb/op_status
 add wave -noupdate -divider Estados
 add wave -noupdate -radix binary /tb/dut/EA
-add wave -noupdate -radix binary /tb/dut/PE
 
 

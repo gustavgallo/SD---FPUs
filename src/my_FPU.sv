@@ -35,23 +35,34 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
     if(!reset) begin
         EA <= DECODE;
     end else begin
-        EA <= PE;
-    end 
+        case (EA)
+            DECODE:begin                    
+                 EA <= ALIGN;
+            end
+
+            ALIGN:begin     
+                EA <= OPERATE;
+            end
+
+            OPERATE:begin     
+                    EA <= NORMALIZE;
+            end
+
+            NORMALIZE: begin
+                if (mant_TMP[21] || exp_TMP == 0 || counter == 5'd21)
+                    EA <= WRITEBACK;
+                else
+                    EA <= NORMALIZE;
+            end
+
+            WRITEBACK: begin      
+                  EA <= DECODE;
+            end
+            default:    EA <= DECODE;
+        endcase
+    end
 end
 
-always_ff @(posedge clock_100Khz or negedge reset) begin
-        if(!reset) begin
-            PE <= DECODE;
-        end
-        case (EA)
-            DECODE:     PE = ALIGN;
-            ALIGN:      PE = OPERATE;
-            OPERATE:    PE = NORMALIZE;
-            NORMALIZE:  PE = (mant_TMP[21] || exp_TMP == 0 || counter == 5'd21) ? WRITEBACK : NORMALIZE;
-            WRITEBACK:  PE = DECODE;
-            default:    PE = DECODE;
-        endcase
-end
 
 always_ff @(posedge clock_100Khz or negedge reset) begin
     if(!reset) begin
