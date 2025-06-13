@@ -53,24 +53,6 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
         endcase
 end
 
-always_comb begin // coloca o de maior exp em mant_A e o outro em mant_B
-    
-        compare =  (Op_A_in[30:21] >= Op_B_in[30:21])? 1'b1 : 1'b0; // ve qual é maior
-  
-        mant_A = compare ? {1'b1,Op_A_in[20:0]} : {1'b1,Op_B_in[20:0]};
-        exp_A = compare ? Op_A_in[30:21] : Op_B_in[30:21];
-        sign_A = compare ? Op_A_in[31] : Op_B_in[31];
-
-        mant_B = compare ? {1'b1,Op_B_in[20:0]} : {1'b1,Op_A_in[20:0]};
-        exp_B = compare ? Op_B_in[30:21] : Op_A_in[30:21];
-        sign_B = compare ? Op_B_in[31] : Op_A_in[31];
-
-        diff_Exponent = exp_A-exp_B;
-        mant_B = (mant_B >> diff_Exponent);
-
-end
-
-
 always_ff @(posedge clock_100Khz or negedge reset) begin
     if(!reset) begin
             data_out   <= 32'd0;
