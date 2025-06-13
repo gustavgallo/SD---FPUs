@@ -107,6 +107,8 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
 
             end
             NORMALIZE: begin
+
+                $display("mant_TMP=%b exp_TMP=%0d counter=%0d", mant_TMP, exp_TMP, counter);
                 if (!mant_TMP[21] && exp_TMP > 0 && counter < 21) begin   // normaliza o resultado
                         mant_TMP <= mant_TMP << 1;
                         exp_TMP  <= exp_TMP - 1;
