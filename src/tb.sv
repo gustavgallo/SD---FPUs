@@ -1,6 +1,12 @@
 `timescale 1us/1ps
 
-module tb#();
+module tb;
+
+    logic clk;
+    logic rst;
+    logic [31:0] send_A;
+    logic [31:0] send_B;
+    logic [31:0] result;
 
 FPU dut(
      .clock_100Khz(clk),
