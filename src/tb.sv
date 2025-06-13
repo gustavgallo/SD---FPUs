@@ -2,7 +2,7 @@
 
 module tb;
 
-    logic clk;
+    logic clk = 0;
     logic rst;
     logic [31:0] send_A;
     logic [31:0] send_B;
@@ -22,7 +22,6 @@ always begin #5; clk <= ~clk; end // periodo de 10 us, frequencia de 100KHz
 initial begin
     // Reset inicial
     rst <= 0;
-    clk <= 0;
     #10 rst <= 1;
 
     // Teste 1: Soma 1.5 + 2.25
