@@ -1,6 +1,6 @@
 // clk de 100Khz
 
-typedef enum logic {
+typedef enum logic[3:0]{
     DECODE,
     ALIGN,
     OPERATE,
@@ -40,6 +40,9 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
 end
 
 always_ff @(posedge clock_100Khz or negedge reset) begin
+        if(!reset) begin
+            PE <= DECODE;
+        end
         case (EA)
             DECODE:     PE = ALIGN;
             ALIGN:      PE = OPERATE;
@@ -68,7 +71,7 @@ always_comb begin // coloca o de maior exp em mant_A e o outro em mant_B
 end
 
 
-always_ff @(posedge clock_100Khz, negedge reset) begin
+always_ff @(posedge clock_100Khz or negedge reset) begin
     if(!reset) begin
             data_out   <= 32'd0;
             status_out <= EXACT;
@@ -133,10 +136,6 @@ always_ff @(posedge clock_100Khz, negedge reset) begin
                         status_out <= EXACT;
             end
         endcase
-        
-            sign_OUT <= sign_A;
-            mant_OUT <= mant_TMP[20:0];
-            data_out <= {sign_OUT, exp_TMP, mant_OUT};
     end
 end
 endmodule
