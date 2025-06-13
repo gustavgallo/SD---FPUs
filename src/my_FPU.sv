@@ -1,8 +1,11 @@
 // clk de 100Khz
 
-typedef enum logic { 
+typedef enum logic {
     DECODE,
-    OPERATION
+    ALIGN,
+    OPERATE,
+    NORMALIZE,
+    WRITEBACK
 } state_t;
 
 typedef enum logic[3:0] { 
@@ -21,51 +24,119 @@ module FPU(
     output status_t status_out
 );
 
-state_t EA;
-logic signalA, signalB;
-logic [31:0] mant_A;
-logic [31:0] mant_B;
-logic [9:0] expA; // vou ter que ver quantos espaços precisa
-logic [9:0] expB;
-logic [9:0] auxExpNorm;
-logic start;
+state_t EA, PE;
+logic sign_A, sign_B, sign_OUT, carry, compare;
+logic [21:0] mant_A, mant_B, mant_TMP, mant_OUT;
+logic [9:0] exp_A, exp_B, exp_TMP, exp_OUT; // vou ter que ver quantos espaços precisa
+logic [9:0] diff_Exponent;
+logic [4:0] counter;
 
-// faz expoente comb
-
-always_comb begin 
-
-    if(start) begin
-        expA = Op_A_in[30:21] - 10'd511; // conferir se ta certo
-        expB = Op_B_in[30:21] - 10'd511;
-
-        auxExpNorm = (expA>expB)? expA-expB:expB-expA;    
-
-        mant_A = {1'b1, Op_A_in[20:0]};
-        mant_B = {1'b1, Op_A_in[20:0]};
-    end 
-
-end
-
-always @(posedge clock_100Khz, negedge reset) begin
+always_ff @(posedge clock_100Khz or negedge reset) begin
     if(!reset) begin
-        
-    end
-
-    if(auxExpNorm) begin
-        if(expA>expB) begin
-            mant_B <= mant_B >> auxExpNorm;
-        end else (if(expB > expA)) begin
-            mant_A <= mant_A >> auxExpNorm;
-        end
-    end
+        EA <= DECODE;
+    end else begin
+        EA <= PE;
+    end 
 end
 
-// confere sinal, faz o calculo dos expoentes (comb), confere qual expoente é maior, faz Z shifts para deixar as mantissas com a mesma base, soma as mantissas de mesma base
+always_ff @(posedge clock_100Khz or negedge reset) begin
+        case (state)
+            DECODE:     PE = ALIGN;
+            ALIGN:      PE = OPERATE;
+            OPERATE:    PE = NORMALIZE;
+            NORMALIZE:  PE = (mant_TMP[21] || exp_TMP == 0 || counter == 5'd21) ? WRITEBACK : NORMALIZE;
+            WRITEBACK:  PE = DECODE;
+            default:    PE = DECODE;
+        endcase
+end
 
-//(-1)s × (1 + fração) × 2(Expoente – BIAS)
+always_comb begin // coloca o de maior exp em mant_A e o outro em mant_B
+    
+        compare =  (Op_A_in[30:21] >= Op_B_in[30:21])? 1'b1 : 1'b0; // ve qual é maior
+  
+        mant_A = compare ? {1'b1,Op_A_in[20:0]} : {1'b1,Op_B_in[20:0]};
+        exp_A = compare ? Op_A_in[30:21] : Op_B_in[30:21];
+        sign_A = compare ? Op_A_in[31] : Op_B_in[31];
 
-//X = 10
-//Y = 21
-//BIAS = 2^(9) - 1 = 511
+        mant_B = compare ? {1'b1,Op_B_in[20:0]} : {1'b1,Op_A_in[20:0]};
+        exp_B = compare ? Op_B_in[30:21] : Op_A_in[30:21];
+        sign_B = compare ? Op_B_in[31] : Op_A_in[31];
 
+        diff_Exponent = exp_A-exp_B;
+        mant_B = (mant_B >> diff_Exponent);
+
+end
+
+
+always_ff @(posedge clock_100Khz, negedge reset) begin
+    if(!reset) begin
+            data_out   <= 32'd0;
+            status_out <= EXACT;
+            mant_TMP   <= 22'd0;
+            exp_TMP    <= 10'd0;
+            counter <= 5'd0;
+    end else begin
+        case(EA) 
+            DECODE: begin
+                compare =  (Op_A_in[30:21] >= Op_B_in[30:21])? 1'b1 : 1'b0; // ve qual é maior ou se são iguais
+  
+                mant_A <= compare ? {1'b1,Op_A_in[20:0]} : {1'b1,Op_B_in[20:0]}; // armazena mant do maior em A
+                exp_A  <= compare ? Op_A_in[30:21] : Op_B_in[30:21];             // exp do maior em A
+                sign_A <= compare ? Op_A_in[31] : Op_B_in[31];                   // sinal do maior 
+
+                mant_B <= compare ? {1'b1,Op_B_in[20:0]} : {1'b1,Op_A_in[20:0]};  // armazena mant do outro em B
+                exp_B  <= compare ? Op_B_in[30:21] : Op_A_in[30:21];              // exp do outro em B
+                sign_B <= compare ? Op_B_in[31] : Op_A_in[31];                    // sinal do outro 
+
+            end
+            ALIGN: begin
+                diff_Exponent <= exp_A-exp_B; // pega a diferença dos expoentes e coloca mant_A e mant_B na mesma base, B sempre é o menor quando eles são diferentes
+                mant_B <= (mant_B >> diff_Exponent); // shift right em mant_B para alinhar
+            end
+            OPERATE: begin
+                if (sign_A == sign_B) begin                     
+                        {carry, mant_TMP} <= mant_A + mant_B;   // soma se forem de sinais iguais, pega o bit carry por concatenação
+                    end else begin
+                        mant_TMP <= mant_A - mant_B;            // subtrai se forem de diferentes
+                        carry    <= 1'b0;                       // sub não tem carry nunca
+                    end
+
+                    exp_TMP <= exp_A;
+
+                    if (carry) begin                    // arruma o numero caso houver carry
+                        mant_TMP <= (mant_TMP >> 1);
+                        exp_TMP  <= exp_TMP + 1;
+                    end
+                    shift_counter <= 5'd0;
+
+            end
+            NORMALIZE: begin
+                if (!mant_TMP[21] && exp_TMP > 0 && counter < 21) begin   // normaliza o resultado
+                        mant_TMP <= mant_TMP << 1;
+                        exp_TMP  <= exp_TMP - 1;
+                        counter <= counter + 1;
+                    end
+            end
+            WRITEBACK: begin
+                sign_OUT  <= sign_A;
+                    mant_OUT  <= mant_TMP[20:0];
+                    exp_OUT   <= exp_TMP;
+                    data_out  <= {sign_OUT, exp_OUT, mant_OUT};
+
+                    if (exp_OUT == 10'd0)
+                        status_out <= UNDERFLOW;
+                    else if (exp_OUT == 10'd1023)
+                        status_out <= OVERFLOW;
+                    else if (|mant_TMP[0])
+                        status_out <= INEXACT;
+                    else
+                        status_out <= EXACT;
+            end
+        endcase
+        
+            sign_OUT <= sign_A;
+            mant_OUT <= mant_TMP[20:0];
+            data_out <= {sign_OUT, exp_TMP, mant_OUT};
+    end
+end
 endmodule
