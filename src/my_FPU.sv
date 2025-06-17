@@ -25,7 +25,7 @@ module FPU(
 );
 
 state_t EA, PE;
-logic sign_A, sign_B, sign_OUT, carry, compare, start, done_decode;
+logic sign_A, sign_B, sign_OUT, carry, compare, start, done_decode, done_align, done_operate, done_writeback;
 logic [21:0] mant_A, mant_B, mant_TMP, mant_OUT;
 logic [9:0] exp_A, exp_B, exp_TMP, exp_OUT; // vou ter que ver quantos espaços precisa
 logic [9:0] diff_Exponent;
@@ -42,34 +42,16 @@ end
 always_comb begin
     PE = EA; // valor padrão
     case (EA)
-        DECODE:
-        begin
-            if(done_decode) begin    
-                PE = ALIGN; 
-            end else begin
-                PE = DECODE;
-            end
-        end
-        ALIGN:
-        begin
-            if(done_align) begin
-                PE = OPERATE;
-            end
-            else begin
-                PE = ALIGN;
-            end
-        end
-        OPERATE:   
-        begin
-            if(done_operate) begin
-                PE = NORMALIZE;
-            end
-            else begin
-                PE = OPERATE;
-            end
-        end 
-        NORMALIZE:   PE = (mant_TMP[21] || exp_TMP == 0 || counter == 5'd21) ? WRITEBACK : NORMALIZE;
-        WRITEBACK:   PE = DECODE;
+        DECODE: PE = (done_decode)? ALIGN : DECODE;
+      
+        ALIGN: PE = (done_align)? OPERATE : ALIGN;
+        
+        OPERATE: PE = (done_operate)? NORMALIZE : OPERATE; 
+       
+        NORMALIZE:   PE = (done_normalize)? WRITEBACK : NORMALIZE;
+
+        WRITEBACK:  PE = (done_writeback)? DECODE : WRITEBACK;
+
         default:     PE = DECODE;
     endcase
 end
@@ -77,13 +59,18 @@ end
 
 always_ff @(posedge clock_100Khz or negedge reset) begin
     if(!reset) begin
-            data_out   <= 32'd0;
+            EA <= DECODE;
+            data_out <= 32'd0;
             status_out <= EXACT;
-            mant_TMP   <= 22'd0;
-            exp_TMP    <= 10'd0;
+            mant_TMP <= 22'd0;
+            exp_TMP <= 10'd0;
             counter <= 5'd0;
             start <= 0;
             done_decode <= 0;
+            done_align <= 0;
+            done_operate <= 0;
+            done_writeback <= 0;
+            done_normalize <= 0;
     end else begin
         case(EA) 
             DECODE: begin
@@ -132,13 +119,16 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
                         mant_TMP <= mant_TMP << 1;
                         exp_TMP  <= exp_TMP - 1;
                         counter <= counter + 1;
-                    end
+                end else begin
+                    done_normalize  <= 1;
+                end 
             end
             WRITEBACK: begin
                 sign_OUT  <= sign_A;
                     mant_OUT  <= mant_TMP[20:0];
                     exp_OUT   <= exp_TMP;
                     data_out  <= {sign_OUT, exp_OUT, mant_OUT};
+                    done_writeback <= 1;
 
                     if (exp_OUT == 10'd0)
                         status_out <= UNDERFLOW;
@@ -148,6 +138,7 @@ always_ff @(posedge clock_100Khz or negedge reset) begin
                         status_out <= INEXACT;
                     else
                         status_out <= EXACT;
+                    
             end
         endcase
     end
