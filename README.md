@@ -40,8 +40,8 @@ Onde:
 - ∑b = soma de todos os dígitos da matrícula (exceto o dígito verificador).
 - Mod 4 = resto da divisão por 4.
 - O sinal da operação (+ ou -) depende do dígito verificador da matrícula:
-  - Se for ímpar → **+**
-  - Se for par → **-**
+  - Se for ímpar → **soma**
+  - Se for par → **subtrai**
 
 - **Mantissa (Y bits):** Calculada como:
 
@@ -49,7 +49,7 @@ Onde:
 
 📌 **Cálculo de X e Y:**
 
-A matrícula utilizado foi **???**, então: 
+A matrícula utilizada foi **???**, então: 
 
  X = 10
  Y = 21
@@ -82,5 +82,5 @@ A simulação foi feita utilizando o **QuestaSim**.
 do sim.do
 ```
 
-O script sim.do compila todos os arquivos necessários e inicia a visualização das formas de onda.
+- O script ***sim.do*** compila todos os arquivos necessários e inicia a visualização das formas de onda.
 
